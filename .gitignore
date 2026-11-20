@@ -1,0 +1,32 @@
+# --- Thinkstruct's data: never commit (README says where to put it) ---
+data/
+patents_ipa*.json
+*.zip
+# task brief from Thinkstruct
+*.pdf
+
+# --- built artifacts (rebuild with: python -m patsearch build) ---
+index/
+*.npy
+*.pkl
+
+# --- secrets / local config ---
+.env
+.env.*
+*.key
+*.pem
+.huggingface/
+.cache/
+.claude/
+
+# --- Python / tooling ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
