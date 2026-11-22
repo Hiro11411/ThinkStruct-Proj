@@ -1,7 +1,10 @@
+# CPU-only PyTorch: Linux/Windows get the small "+cpu" build from the PyTorch index;
+# macOS wheels on PyPI are already CPU-only, so macOS uses the plain version.
 --extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.15.0+cpu ; sys_platform != "darwin"
+torch==2.15.0 ; sys_platform == "darwin"
 numpy==2.4.6
 pytest==9.2.0
 rich==15.0.0
 sentence-transformers==6.3.0
-torch==2.15.0+cpu
 transformers==5.23.0

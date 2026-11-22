@@ -30,3 +30,8 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- working notes and generated output (not part of the submission) ---
+REVIEW.md
+FIXES.md
+out/

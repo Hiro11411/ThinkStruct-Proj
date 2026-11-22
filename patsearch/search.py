@@ -189,6 +189,11 @@ def search(idx: Index, query: str, filters: Filters | None = None, k: int = 10, 
     qtok = tokenize(query)
     qvec = None
     if mode in ("hybrid", "dense"):
+        if not idx.model_loaded():
+            # One-off cost per process (cold start). Timed on its own so it is never
+            # reported as part of "embed query".
+            with tr.step("load model (first query in this process only)"):
+                idx.model()
         with tr.step("embed query"):
             qvec = idx.embed_query(query)
     bm, dn = _retrieve(idx, qtok, qvec, piece_mask, strategy, POOL, tr, mode)

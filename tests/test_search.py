@@ -1,4 +1,6 @@
 """Search, filter and planner rules on a tiny hand-made index (fake embeddings, no model download)."""
+import zlib
+
 import numpy as np
 import pytest
 
@@ -28,11 +30,12 @@ def idx():
     def vec(text):
         v = np.zeros(64, dtype=np.float32)
         for t in tokenize(text):
-            v[hash(t) % 64] += 1
+            v[zlib.crc32(t.encode()) % 64] += 1  # fixed hash: built-in hash() is randomized per run
         return v / (np.linalg.norm(v) or 1)
     emb = np.stack([vec(p.text) for p in pieces])
     ix = Index(pats, pieces, bm25, emb, "fake")
     ix.embed_query = lambda text, prefix=True: vec(text)
+    ix._model = "fake-model"  # pretend the model is already loaded (warm process)
     return ix
 
 
@@ -126,3 +129,49 @@ def test_trace_records_every_step(idx):
     search(idx, "tire", Filters(cpc=["B60C"]), trace=tr)
     for step in ("apply metadata filters", "plan filter strategy", "BM25 keyword scoring", "embedding similarity"):
         assert step in tr.timings
+
+
+# ---------------------------------------------------------------- Batch A: trace timings
+def test_model_load_is_timed_separately_from_query_embedding(idx):
+    """A1: the cold-start model load must not be counted as 'embed query'."""
+    load_calls = []
+
+    def fake_model_loader():
+        load_calls.append(1)
+        idx._model = "loaded"
+        return idx._model
+
+    idx._model = None
+    idx.model = fake_model_loader
+    first_trace = Trace()
+    search(idx, "tire sipes", trace=first_trace)
+    assert "load model (first query in this process only)" in first_trace.timings
+    assert "embed query" in first_trace.timings
+
+    second_trace = Trace()
+    search(idx, "tire sipes", trace=second_trace)
+    assert "load model (first query in this process only)" not in second_trace.timings
+    assert len(load_calls) == 1
+
+
+def test_multi_claim_timings_do_not_overwrite_each_other(idx):
+    """A2: each independent claim's inner steps get their own timing key."""
+    patent = idx.patents[idx.by_doc["A4"]]
+    patent.claims.append(Claim(2, "A tire comprising a tread with sipes.", None, False, False))
+    trace = Trace()
+    result, claims_used = search_by_patent(idx, "A4", trace=trace)
+    assert claims_used == [1, 2]
+    assert "search with claim 1 > embed query" in trace.timings
+    assert "search with claim 2 > embed query" in trace.timings
+
+
+# ---------------------------------------------------------------- Batch A: cut-off warning
+def test_cut_off_query_claim_produces_warning():
+    from patsearch.cli import cut_off_warnings
+    patent = Patent("X1", "WHEEL", "", "", ("", "", ""), "", [], [
+        Claim(1, "A wheel comprising a semicircular plate (", None, False, True),
+        Claim(2, "The wheel of claim 1, wherein the plate is steel.", 1, False, False),
+    ])
+    assert len(cut_off_warnings(patent, [1])) == 1
+    assert "claim 1" in cut_off_warnings(patent, [1])[0]
+    assert cut_off_warnings(patent, [2]) == []

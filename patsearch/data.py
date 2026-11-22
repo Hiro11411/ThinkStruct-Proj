@@ -98,10 +98,28 @@ _FIG_GLUE = re.compile(r"\b(FIGS?\.\s?\d+[A-Z]?)(?=[a-z])")
 _CLAIM_HEAD = re.compile(r"^\s*(\d+)\s*(?:-\s*(\d+)\s*)?\.\s*(.*)$", re.S)
 _DEPENDS = re.compile(r"\bclaims?\s+(\d+)", re.I)
 _SPACE_BEFORE_PUNCT = re.compile(r"\s+([,.;:])")
+# Reference numeral glued to the next word: "member 10is", "146are", "3shows", "1denotes".
+# Only a fixed list of verbs, so real tokens like "10a", "5mm" or "2nd" are left alone.
+_GLUE_VERBS = "is|are|has|have|shows|show|illustrates|includes|denotes|represents|indicates|was|were"
+_NUMBER_VERB_GLUE = re.compile(r"\b(\d+[A-Z]?)(?=(?:" + _GLUE_VERBS + r")\b)")
+GLUED_TEXT = re.compile(r"\b\d+[A-Z]?(?:" + _GLUE_VERBS + r")\b")  # detector, used for reporting
+
+
+def count_glued_paragraphs(patents: list[Patent]) -> int:
+    """How many cleaned paragraphs still contain number+verb glue (should be 0 after cleaning)."""
+    glued_count = 0
+    for patent_index in range(len(patents)):
+        paragraphs = patents[patent_index].paragraphs
+        for paragraph_index in range(len(paragraphs)):
+            paragraph_text = paragraphs[paragraph_index][1]
+            if GLUED_TEXT.search(paragraph_text):
+                glued_count += 1
+    return glued_count
 
 
 def _tidy(text: str) -> str:
     text = _FIG_GLUE.sub(r"\1 ", text)
+    text = _NUMBER_VERB_GLUE.sub(r"\1 ", text)
     text = _SPACE_BEFORE_PUNCT.sub(r"\1", text)  # "claim 1 , wherein" -> "claim 1, wherein"
     return re.sub(r"\s+", " ", text).strip()
 

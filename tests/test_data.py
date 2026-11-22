@@ -86,3 +86,24 @@ def test_long_paragraph_split():
     p = Patent("X", "T", "", "", ("", "", ""), "", [(3, long)], [])
     paras = [pc for pc in make_pieces([p]) if pc.kind == "para"]
     assert len(paras) == 3 and paras[0].ref == "para [0003]" and paras[1].ref == "para [0003].2"
+
+
+# ---------------------------------------------------------------- Batch A: glued number + verb
+def test_glued_number_and_verb_is_split():
+    cleaned = clean_paragraphs(["The member 10is fixed to the hub 146are shown and 3shows the rim; 1denotes a spoke."])
+    paragraph_text = cleaned[0][1]
+    assert "10 is" in paragraph_text
+    assert "146 are" in paragraph_text
+    assert "3 shows" in paragraph_text
+    assert "1 denotes" in paragraph_text
+
+
+def test_real_tokens_next_to_numbers_are_left_alone():
+    cleaned = clean_paragraphs(["Spoke 10a is 5mm thick and the 2nd ring 12B has a groove."])
+    assert cleaned[0][1] == "Spoke 10a is 5mm thick and the 2nd ring 12B has a groove."
+
+
+def test_count_glued_paragraphs_is_zero_after_cleaning():
+    from patsearch.data import count_glued_paragraphs
+    patent = Patent("X", "T", "", "", ("", "", ""), "", clean_paragraphs(["Wheel 12has a rim."]), [])
+    assert count_glued_paragraphs([patent]) == 0

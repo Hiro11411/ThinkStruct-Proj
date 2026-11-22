@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 
 import numpy as np
 
-from .data import Patent, Piece, load_patents, make_pieces
+from .data import Patent, Piece, count_glued_paragraphs, load_patents, make_pieces
 from .trace import Trace
 
 INDEX_DIR = os.environ.get("PATSEARCH_INDEX", "index")
@@ -86,6 +86,9 @@ class Index:
         self._model = None
 
     # ------------------------------------------------------------------ model
+    def model_loaded(self) -> bool:
+        return self._model is not None
+
     def model(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
@@ -117,6 +120,7 @@ def build(data_dir: str | None = None, out_dir: str = INDEX_DIR, model_name: str
         tr.info(f"{len(patents)} patents; {n_empty} with empty description (kept: searched on abstract+claims)")
         tr.info(f"{n_fix} claim-1s had lost their opening words -> rebuilt from title")
         tr.info(f"{len({p.family for p in patents})} families after sibling grouping")
+        tr.info(f"{count_glued_paragraphs(patents)} paragraphs still have glued number+verb text (e.g. '10is')")
     with tr.step("split into pieces (abstract / claims / paragraphs)"):
         pieces = make_pieces(patents)
         kinds = Counter(pc.kind for pc in pieces)

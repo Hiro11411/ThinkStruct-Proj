@@ -72,7 +72,20 @@ def cmd_search(a):
     tr = Trace(verbose=not a.quiet)
     idx = index_mod.load(a.index, trace=tr)
     res = search(idx, a.query, _filters(a), k=a.k, mode=a.mode, force_strategy=a.strategy, trace=tr)
+    if a.query.rstrip().endswith("("):
+        console.print("[yellow]Warning: the query ends at '(' and looks cut off; results may miss its last part.[/yellow]")
     _print_hits(res)
+
+
+def cut_off_warnings(patent, claim_numbers) -> list[str]:
+    """One warning per query claim that the upstream parser cut off at '(' (flag set in data.py)."""
+    warnings = []
+    for claim_index in range(len(patent.claims)):
+        claim = patent.claims[claim_index]
+        if claim.num in claim_numbers and claim.cut_off:
+            warnings.append(f"Warning: claim {claim.num} of {patent.doc} is cut off at '(' in the source data; "
+                            f"the query is incomplete and results may miss its last part.")
+    return warnings
 
 
 def cmd_patent(a):
@@ -82,6 +95,10 @@ def cmd_patent(a):
     idx = index_mod.load(a.index, trace=tr)
     res, claims = search_by_patent(idx, a.doc, claim=a.claim, filters=_filters(a), k=a.k,
                                    date_cutoff=not a.no_date_cutoff, mode=a.mode, trace=tr)
+    patent = idx.patents[idx.by_doc[a.doc]]
+    warnings = cut_off_warnings(patent, claims)
+    for warning_index in range(len(warnings)):
+        console.print(f"[yellow]{warnings[warning_index]}[/yellow]")
     _print_hits(res)
 
 
